@@ -138,6 +138,20 @@ function Taboo() {
     }
   };
 
+  this.updateContext = function(popup) {
+    var url = currentUrl();
+    var alreadySaved = SVC.isSaved(url);
+    for (var i=0; i<popup.childNodes.length; i++) {
+      var node = popup.childNodes[i];
+      if (node.getAttribute('class') == 'saved') {
+        node.hidden = !alreadySaved;
+      }
+      if (node.getAttribute('class') == 'unsaved') {
+        node.hidden = alreadySaved;
+      }
+    }
+  };
+
   this.addTaboo = function(event) {
     var url = currentUrl();
     var alreadySaved = SVC.isSaved(url);
@@ -164,6 +178,10 @@ function Taboo() {
     if (SVC.isSaved(url)) {
       BrowserCloseTabOrWindow();
     }
+  };
+
+  this.addAllTaboo = function(event) {
+    alert('foo')
   };
 
   this.removeTaboo = function(event) {
@@ -218,10 +236,10 @@ function Taboo() {
   function moveTo(newIdx) {
     if (newIdx < 0) {
       if (quickShowIdx == 0) {
-	return;
+        return;
       }
       else {
-	newIdx = 0;
+        newIdx = 0;
       }
     }
 
@@ -367,10 +385,10 @@ function Taboo() {
       var row = document.createElement('row');
       var item = document.createElement('label');
       if ($('taboo-quickShow-search').value == '') {
-	item.setAttribute('value', 'No Tabs Saved');
+        item.setAttribute('value', 'No Tabs Saved');
       }
       else {
-	item.setAttribute('value', 'No Tabs Matched');
+        item.setAttribute('value', 'No Tabs Matched');
       }
       row.appendChild(item);
       quickShowRows.appendChild(row);
