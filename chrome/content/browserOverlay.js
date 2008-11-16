@@ -457,7 +457,7 @@ function init() {
 
   prefs.setCharPref("lastversion", version);
   if (pageURL && pageURL != "null") {
-    setTimeout(function(){window.openUILinkIn(pageURL, "tab")}, SHOW_DELAY);
+    setTimeout(function(){window.openUILinkIn(pageURL, "tab")}, STARTUP_SHOW_DELAY);
   }
 
   if (FF3) {
