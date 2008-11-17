@@ -44,6 +44,7 @@ interface oyITaboo : nsISupports {
   void openInTab(in AUTF8String aURL, in nsIDOMNode aTab);
 
   boolean save(in AUTF8String aDescription);
+  boolean saveAll();
   boolean isSaved(in AUTF8String aURL);
 
   void update(in AUTF8String aURL, in AUTF8String aTitle,

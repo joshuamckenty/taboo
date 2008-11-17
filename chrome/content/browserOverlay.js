@@ -164,6 +164,11 @@ function Taboo() {
     }
   };
 
+  this.addAllTaboo = function(event) {
+    SVC.saveAll(null);
+    saved(true);
+  };
+
   this.addTabooWithDetails = function(event) {
     SVC.save(null);
     saved(true);
@@ -178,10 +183,6 @@ function Taboo() {
     if (SVC.isSaved(url)) {
       BrowserCloseTabOrWindow();
     }
-  };
-
-  this.addAllTaboo = function(event) {
-    alert('foo')
   };
 
   this.removeTaboo = function(event) {

@@ -37,6 +37,7 @@
           <menuitem class="unsaved" label="Save Tab" command="cmd_addTabooWithDetails" />
           <menuitem class="saved" label="Edit Notes" command="cmd_addTabooWithDetails" />
           <menuitem class="saved" label="Remove Taboo" command="cmd_removeTaboo" />
+          <menuitem label="Save All Tabs" command="cmd_addAllTaboo" />
         </menupopup>
       </toolbarbutton>
       <toolbarbutton id="taboo-toolbarbutton-view"

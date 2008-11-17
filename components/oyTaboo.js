@@ -590,18 +590,84 @@ TabooService.prototype = {
   },
 
   saveAll: function TB_saveAll() {
+    var ss = Cc['@mozilla.org/browser/sessionstore;1']
+      .getService(Ci.nsISessionStore);
     var wm = Cc["@mozilla.org/appshell/window-mediator;1"]
       .getService(Ci.nsIWindowMediator);
-    var window = wm.getMostRecentWindow('navigator:browser');
-
-    var tabbrowser = window.getBrowser();
+    var win = wm.getMostRecentWindow('navigator:browser');
+    var winJSON = "(" + ss.getWindowState(win) + ")";
+    var winState = this._safeJSONeval(winJSON);
+    
+    var tabbrowser = win.getBrowser();
 
     var browsers = tabbrowser.browsers;
     for (var i = 0; i < browsers.length; i++) {
-      var win = browsers[i].contentWindow;
+      var content_win = browsers[i].contentWindow;
+      var state = winState.windows[0].tabs[i];
+      this._saveTab(state, content_win, null, tabbrowser.tabContainer.childNodes[i].getAttribute('image'));
+    }
+    return true;
+    
+  },
+  
+  _saveFavicon: function TB_save_favicon(faviconURL, url) {
+    var ios = Cc['@mozilla.org/network/io-service;1']
+        .getService(Ci.nsIIOService);
+    var faviconURI = ios.newURI(faviconURL, null, null);
 
+    if (Ci.nsIFaviconService) {
+      var faviconSvc = Cc['@mozilla.org/browser/favicon-service;1']
+        .getService(Ci.nsIFaviconService);
+
+      var dataURL = null;
+
+      try {
+        if (faviconSvc.getFaviconDataAsDataURL) {
+          dataURL = faviconSvc.getFaviconDataAsDataURL(faviconURI);
+        } else {
+          var mimeType = {};
+          var bytes = faviconSvc.getFaviconData(faviconURI, mimeType, {});
+          if (bytes) {
+            dataURL = 'data:';
+            dataURL += mimeType.value;
+            dataURL += ';base64,';
+            dataURL += btoa(String.fromCharCode.apply(null, bytes));
+          }
+        }
+      } catch (ex) {
+        // do nothing, use default value
+      }
+
+      if (dataURL) {
+        this._storage.saveFavicon(url, dataURL);
+      }
+    } else {
+      var chan = ios.newChannelFromURI(faviconURI);
+      var listener = new tabooFavIconLoadListener(url, faviconURL, chan,
+                                                  this._storage);
+      chan.notificationCallbacks = listener;
+      chan.asyncOpen(listener, null);
+    }
+  },
+
+  _saveTab: function TB_save_tab(state, win, aDescription, faviconURL) {
+    
+    var url = state.entries[state.index - 1].url;
+    url = url.replace(/#.*$/, '');
+
+    var fullImage = snapshot(win, IMAGE_FULL_WIDTH, IMAGE_FULL_HEIGHT);
+    var thumbImage = snapshot(win, IMAGE_THUMB_WIDTH, IMAGE_THUMB_HEIGHT);
+
+    var exists = this._storage.save(url, aDescription, state,
+                                    fullImage, thumbImage);
+    if (faviconURL) {
+      this._saveFavicon(faviconURL, url);
     }
 
+    for (var i = 0; i < this._observers.length; i++) {
+      this._observers[i].onSave(url, !exists);
+    }
+    return true;
   },
 
   save: function TB_save(aDescription) {
@@ -612,7 +678,8 @@ TabooService.prototype = {
     var tabbrowser = win.getBrowser();
     var selectedBrowser = tabbrowser.selectedBrowser;
     var selectedTab = tabbrowser.selectedTab;
-
+    var faviconURL = selectedTab.getAttribute('image');
+    
     var currentTab = -1;
     var browsers = tabbrowser.browsers;
     for (var i = 0; i < browsers.length; i++) {
@@ -627,81 +694,26 @@ TabooService.prototype = {
       .getService(Ci.nsISessionStore);
 
     var state;
-    var sandbox = new Cu.Sandbox('about:blank');
-
     if (newSSApi) {
       var tabJSON = "(" + ss.getTabState(selectedTab) + ")";
-
-      if (getBoolPref(PREF_DEBUG, false))
-        dump(tabJSON + "\n");
-
-      state = Cu.evalInSandbox(tabJSON, sandbox);
+      state = this._safeJSONeval(tabJSON);
     } else {
       var winJSON = "(" + ss.getWindowState(win) + ")";
-
-      if (getBoolPref(PREF_DEBUG, false))
-        dump(winJSON + "\n");
-
-      var winState = Cu.evalInSandbox(winJSON, sandbox);
-      state = winState.windows[0].tabs[currentTab];
+      state = this._safeJSONeval(winJSON).windows[0].tabs[currentTab];
     }
-
-    var url = state.entries[state.index - 1].url;
-    url = url.replace(/#.*$/, '');
-
-    var fullImage = snapshot(win, IMAGE_FULL_WIDTH, IMAGE_FULL_HEIGHT);
-    var thumbImage = snapshot(win, IMAGE_THUMB_WIDTH, IMAGE_THUMB_HEIGHT);
-
-    var exists = this._storage.save(url, aDescription, state,
-                                    fullImage, thumbImage);
-
-    var faviconURL = selectedTab.getAttribute('image');
-    if (faviconURL) {
-      var ios = Cc['@mozilla.org/network/io-service;1']
-        .getService(Ci.nsIIOService);
-      var faviconURI = ios.newURI(faviconURL, null, null);
-
-      if (Ci.nsIFaviconService) {
-        var faviconSvc = Cc['@mozilla.org/browser/favicon-service;1']
-          .getService(Ci.nsIFaviconService);
-
-        var dataURL = null;
-
-        try {
-          if (faviconSvc.getFaviconDataAsDataURL) {
-            dataURL = faviconSvc.getFaviconDataAsDataURL(faviconURI);
-          } else {
-            var mimeType = {};
-            var bytes = faviconSvc.getFaviconData(faviconURI, mimeType, {});
-            if (bytes) {
-              dataURL = 'data:';
-              dataURL += mimeType.value;
-              dataURL += ';base64,';
-              dataURL += btoa(String.fromCharCode.apply(null, bytes));
-            }
-          }
-        } catch (ex) {
-          // do nothing, use default value
-        }
-
-        if (dataURL) {
-          this._storage.saveFavicon(url, dataURL);
-        }
-      } else {
-        var chan = ios.newChannelFromURI(faviconURI);
-        var listener = new tabooFavIconLoadListener(url, faviconURL, chan,
-                                                    this._storage);
-        chan.notificationCallbacks = listener;
-        chan.asyncOpen(listener, null);
-      }
-    }
-
-    for (var i = 0; i < this._observers.length; i++) {
-      this._observers[i].onSave(url, !exists);
-    }
-
-    return true;
+    
+    return this._saveTab(state, win, aDescription);
   },
+  
+  _safeJSONeval: function TB_safeJSONeval(aJSON) {
+    
+    var sandbox = new Cu.Sandbox('about:blank');
+    if (getBoolPref(PREF_DEBUG, false))
+        dump(aJSON + "\n");
+    state = Cu.evalInSandbox(aJSON, sandbox);
+    return state;
+  },
+  
   isSaved: function TB_isSaved(aURL) {
     return this._storage.exists(aURL);
   },
